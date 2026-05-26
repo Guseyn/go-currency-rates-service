@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  # The Database Service
+  postgres_db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: currency_exchange
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+  # Go App Service
+  web_app:
+    build: .
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres_db
+    environment:
+      - DB_HOST=postgres_db
+      - DB_PORT=5432
+      - DB_USER=user
+      - DB_PASSWORD=password
+      - DB_NAME=currency_exchange
+      - DB_SSLMODE=disable
+
+volumes:
+  pg_data:
