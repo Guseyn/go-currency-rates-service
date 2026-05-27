@@ -1,4 +1,4 @@
-package main
+package util
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func initDbClient() *pgxpool.Pool {
+func InitDbClient() *pgxpool.Pool {
 	dbUser := os.Getenv("DB_USER")
 	dbPassword := os.Getenv("DB_PASSWORD")
 	dbHost := os.Getenv("DB_HOST")

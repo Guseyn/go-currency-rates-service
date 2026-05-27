@@ -1,0 +1,171 @@
+openapi: 3.0.3
+info:
+  title: Asynchronous Currency Exchange Engine API
+  version: 1.0.0
+  description: |
+    A high-performance Go microservice designed to fetch and cache currency exchange valuations asynchronously.
+    
+    ### Core Architecture Workflow:
+    1. **Producer (`POST /rates/update`)**: Validates the currency pair request, writes an immediate `"pending"` tracking row to PostgreSQL, queues a small task wrapper into an internal buffered memory channel, and hands a `202 Accepted` tracking token back to the client in milliseconds.
+    2. **Background Consumer**: Thread-safe background worker routines pull tasks from the channel, execute non-blocking outbound REST calls to real-market OpenAPI streams, unpack payloads, and issue transactional `UPSERT` commands to safe-keep cache tables against race conditions.
+    3. **Query Engine (`GET /rates/job/{id}` & `GET /rates/latest/{pair}`)**: Allows instant pulling of task lifecycles and historical currency cache values.
+
+servers:
+  - url: http://localhost:8080
+    description: Local Go Development Backend Server
+
+paths:
+  /rates/update:
+    post:
+      summary: Queue a background currency exchange rate sync job
+      description: |
+        Accepts a requested currency pair token, saves an initial pending log record to the database, and publishes a micro-task onto the concurrent background worker channel pool. Returns immediately.
+      operationId: updateQuote
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - currency_pair
+              properties:
+                currency_pair:
+                  type: string
+                  pattern: '^[A-Z]{3}/[A-Z]{3}$'
+                  example: "USD/MXN"
+                  description: "Standard currency ISO symbol pair split with a forward-slash delimiter."
+      responses:
+        '202':
+          description: Job successfully created, allocated, and committed to background channel buffers.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateJobCreatedResponse'
+        '400':
+          description: Malformed JSON payload or missing required currency_pair fields.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal database persistence failure.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /rates/job/{id}:
+    get:
+      summary: Retrieve the processing status of a queued update job
+      description: Reads live tracking logs for an asynchronous task execution trace. Returns the rate once completed.
+      operationId: getJobStatus
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique string uuid token generated during the initial POST request step.
+          schema:
+            type: string
+            format: uuid
+          example: "a97b4b32-9cb8-4e12-870b-426b38c03e83"
+      responses:
+        '200':
+          description: Tracking payload trace located and loaded successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobStatusDetails'
+        '400':
+          description: Invalid query format or missing parameters.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Provided tracking ID token does not match any known records inside database logs.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Database scanning connectivity fault.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /rates/latest/{pair}:
+    get:
+      summary: Fetch the latest cached currency pair rate
+      description: Query the primary memory cache map table for the most recent completed market conversion value recorded on the server.
+      operationId: getLatestQuote
+      parameters:
+        - name: pair
+          in: path
+          required: true
+          description: Target pair lookup value (e.g., USD/MXN or EUR/USD). Use a hyphen or forward slash depending on how it's saved.
+          schema:
+            type: string
+          example: "USD/MXN"
+      responses:
+        '200':
+          description: Price cache match found and read successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LatestCachedRateResponse'
+        '404':
+          description: Requested currency pair is valid, but has never been fetched or synced into cache yet.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal read or query parse error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    UpdateJobCreatedResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "a97b4b32-9cb8-4e12-870b-426b38c03e83"
+          description: "Unique tracking token identifier assigned to the asynchronous pipeline job."
+
+    JobStatusDetails:
+      type: object
+      required:
+        - id
+        - currency_pair
+        - status
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "a97b4b32-9cb8-4e12-870b-426b38c03e83"
+        currency_pair:
+          type: string
+          example: "USD/MXN"
+        status:
+          type: string
+          enum: [pending, completed, failed]
+          example: "completed"
+          description: "Current internal pipeline processing state of the asynchronous worker thread."
+        price:
+          type: number
+          format: float
+          example: 17.4258
+          description: "Live evaluation valuation. Will be excluded or null if the status is still pending."
+        updated_at:
+          type: string
+          format: date-time
+          example: "2026-05-27T16:45:02Z"
+          description: "Timestamp showing the last
