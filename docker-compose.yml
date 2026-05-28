@@ -34,10 +34,10 @@ services:
       - "8081:8080" # Binds local machine port 8081 to Swagger container's internal 8080
     volumes:
         # Mounts your local yaml file directly into the container
-      - ./api/swagger.yaml:/usr/share/nginx/html/swagger.yaml
+      - ./api/swagger.yaml:/tmp/swagger.yaml
     environment:
       # Tells Swagger UI exactly where to find your mounted specification file
-      - SPEC_URL=swagger.yaml
+      - SWAGGER_JSON=/tmp/swagger.yaml
 
 volumes:
   pg_data:

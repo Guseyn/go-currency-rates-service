@@ -168,4 +168,36 @@ components:
           type: string
           format: date-time
           example: "2026-05-27T16:45:02Z"
-          description: "Timestamp showing the last
+          description: "Timestamp showing the last"
+
+    LatestCachedRateResponse:
+      type: object
+      required:
+        - currency_pair
+        - rate
+        - fetched_at
+      properties:
+        currency_pair:
+          type: string
+          example: "USD/MXN"
+        rate:
+          type: number
+          format: float
+          example: 17.4258
+        fetched_at:
+          type: string
+          format: date-time
+          example: "2026-05-28T08:03:26Z"
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          example: "Internal database error"
+        message:
+          type: string
+          example: "closed pool"
+          description: "Detailed system level error message string if available."

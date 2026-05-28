@@ -22,7 +22,6 @@ func InitDbClient() *pgxpool.Pool {
 	if err != nil {
 		log.Fatalf("Unable to create connection pool: %v\n", err)
 	}
-	defer dbPool.Close()
 	if err := dbPool.Ping(ctx); err != nil {
 		log.Fatalf("Unable to ping database: %v\n", err)
 	}
