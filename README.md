@@ -60,6 +60,8 @@ The complete API specifications are documented via OpenAPI. You can view the ful
 | **GET** | `/rates/job/{id}` | Inspects runtime processing metrics/status for a specified job. | `200 OK` / `404` |
 | **GET** | `/rates/latest/{pair}` | Fetches the current, cached pricing for a URL-encoded pair (e.g., `EUR%2FUSD`). | `200 OK` / `404` |
 
+You can manually test API via Swagger: http://localhost:8081/
+
 ## Getting Started
 
 ### Prerequisites
